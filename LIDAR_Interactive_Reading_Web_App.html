@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIDAR — Interactive Reading & Comprehension</title>
+<style>
+:root{
+  --bg:#f4f8fb; --card:#ffffff; --ink:#19324a; --muted:#637587;
+  --accent:#1976a8; --accent2:#0e5d84; --line:#d7e4ec;
+  --good:#1d7a46; --bad:#b3261e; --soft:#eaf4f9; --shadow:0 8px 24px rgba(24,55,78,.09);
+}
+body.dark{--bg:#111a22;--card:#18252f;--ink:#edf6fb;--muted:#b4c5cf;--accent:#55b6e7;--accent2:#86d0f4;--line:#334854;--soft:#203744;--shadow:0 8px 24px rgba(0,0,0,.25)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.5}
+header{background:linear-gradient(135deg,#0d577b,#2b8db8);color:#fff;padding:28px 20px}
+.header-inner{max-width:1200px;margin:auto;display:flex;justify-content:space-between;gap:20px;align-items:center}
+h1{margin:0;font-size:clamp(26px,4vw,40px)} h2{font-size:22px;margin:0 0 12px} h3{margin:0 0 8px}
+.subtitle{opacity:.92;margin-top:5px}
+button{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer}
+.mode{background:#fff;color:#155777}
+main{max-width:1200px;margin:24px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+label{font-weight:700;font-size:14px} input,select,textarea{width:100%;margin-top:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:10px;font:inherit}
+.progress-wrap{background:var(--line);height:16px;border-radius:20px;overflow:hidden;margin:8px 0}
+.progress{height:100%;width:0;background:var(--accent);transition:width .25s}
+.progress-text{text-align:right;font-size:13px;color:var(--muted)}
+.reading{max-height:470px;overflow:auto;padding-right:10px}
+.reading p{margin:0 0 14px}.pnum{font-weight:800;color:var(--accent)}
+.notice{background:var(--soft);border-left:5px solid var(--accent);padding:12px 14px;border-radius:8px}
+details{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--soft)}
+summary{font-weight:800;cursor:pointer}
+.section-title{display:flex;align-items:center;gap:10px;color:var(--accent2)}
+.badge{font-size:12px;background:var(--soft);padding:4px 8px;border-radius:99px;color:var(--accent2)}
+.question{border-top:1px solid var(--line);padding:16px 0}.question:first-child{border-top:0}
+.qtext{font-weight:700;margin-bottom:9px}
+.options{display:grid;gap:7px}.options label{font-weight:500;display:flex;gap:9px;align-items:flex-start}
+.options input{width:auto;margin-top:4px}
+.wordbank{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.word{background:var(--soft);padding:5px 9px;border-radius:8px;font-weight:700;font-size:13px}
+.finish{width:100%;background:var(--accent2);color:#fff;font-size:17px;padding:15px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.actions button{background:var(--accent);color:#fff}
+.hidden{display:none!important}
+.dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.stat{background:var(--soft);padding:15px;border-radius:12px}.stat strong{font-size:25px;display:block}
+.review .correct{border-left:5px solid var(--good);padding-left:12px}.review .incorrect{border-left:5px solid var(--bad);padding-left:12px}
+.good{color:var(--good)}.bad{color:var(--bad)}
+.small{font-size:13px;color:var(--muted)}
+@media print{
+  body{background:#fff;color:#111}.no-print{display:none!important}.card{box-shadow:none;break-inside:avoid}
+  .reading{max-height:none}.review .question{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <h1>LIDAR</h1>
+      <div class="subtitle">Interactive Reading, Vocabulary & Comprehension</div>
+    </div>
+    <button class="mode no-print" id="modeBtn">☾ Dark / Light</button>
+  </div>
+</header>
+
+<main>
+<section class="card no-print">
+  <div class="grid">
+    <div><label for="student">Student Name *</label><input id="student" required></div>
+    <div><label for="class">Class / Section *</label><input id="class" required></div>
+    <div><label for="date">Date *</label><input id="date" type="date"></div>
+  </div>
+  <div style="margin-top:18px">
+    <div class="progress-text" id="progressText">0% Completed</div>
+    <div class="progress-wrap"><div class="progress" id="progress"></div></div>
+    <div class="small">Your work is saved automatically on this device. No score is shown until you finish.</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">📖 READ — LIDAR <span class="badge">Reading reference</span></h2>
+  <div class="notice no-print">The original textbook screenshots you uploaded contain the full passage. This app uses a concise, original-language summary below so students can work independently without reproducing the textbook passage. Keep the uploaded screenshots available as the exact reading reference.</div>
+  <details open>
+    <summary>Reading summary by paragraph</summary>
+    <div class="reading">
+      <p><span class="pnum">Opening:</span> Technology can help researchers locate evidence of civilizations that disappeared.</p>
+      <p><span class="pnum">1.</span> The Maya were a major civilization in the Americas before European arrival. Their civilization reached its peak from AD 250 to AD 900. They built impressive stone structures, grew crops such as corn, developed mathematics and writing, and created a solar calendar. Their decline began around AD 900, but the exact cause is uncertain; possibilities mentioned include war, volcanic activity, and drought.</p>
+      <p><span class="pnum">2.</span> Researchers are learning more about the Maya through investigations in Mexico and Guatemala. LIDAR is the technology that has made many of these discoveries possible.</p>
+      <p><span class="pnum">3.</span> LIDAR means Light Detection and Ranging. It uses lasers to create three-dimensional images. It can be used for mapping, weather forecasting, space exploration, and self-driving cars. For archaeology, LIDAR equipment can be carried by aircraft; laser signals reveal patterns of natural and human-made features, even when vegetation hides them.</p>
+      <p><span class="pnum">4.</span> At Aguada Fénix in Mexico, LIDAR revealed the full size of a very large earth platform with buildings on top. The structure is considered the oldest and largest known structure in the Mayan region and is larger than Egypt's biggest pyramid. Researchers estimate that it required thousands of people and several years to construct and may have been used for ceremonies. Roads leading to it support that interpretation.</p>
+      <p><span class="pnum">5.</span> The absence of nearby houses suggests that people may not have lived at the site. The structure may represent a transition toward larger, more permanent settlements. Its size also indicates cooperation among different groups. Patterns in different soil colors may have represented contributions from those groups.</p>
+      <p><span class="pnum">6.</span> In Guatemala, the PACUNAM LIDAR Initiative surveyed about 2,100 square kilometers from the air. It revealed ruins showing that the civilization was more complex and advanced than researchers had previously believed.</p>
+      <p><span class="pnum">7.</span> LIDAR changed what researchers knew about Tikal. A feature once thought to be a small hill was actually a building that may have been ceremonial and may have contained a royal tomb. Researchers also discovered a large fortress between Tikal and nearby El Zotz. The fortress included watchtowers, moats, and high walls, suggesting concern about attacks.</p>
+      <p><span class="pnum">8.</span> LIDAR research has economic as well as academic value. In Guatemala, ancient ruins support tourism, and newly discovered sites can create new attractions. LIDAR can also help build cultural databases and document damage caused by vandalism or theft.</p>
+      <p><span class="pnum">9.</span> LIDAR has limits. It can reveal features below vegetation and can help researchers locate tunnels or buried ruins, but it does not eliminate the need for physical work. It makes investigations faster and more efficient by providing accurate maps. Much remains unknown about the Maya, so LIDAR is expected to remain useful for future research.</p>
+    </div>
+  </details>
+  <details>
+    <summary>Diagram vocabulary from the textbook</summary>
+    <p><b>Aircraft labels:</b> GPS, Digital Camera, Pitch, Roll, Heading.</p>
+    <p><b>Ground-system label:</b> GPS Base Station.</p>
+    <p class="small">Use the uploaded textbook image for the original diagram.</p>
+  </details>
+</section>
+
+<form id="work">
+<section class="card">
+  <h2 class="section-title">A. VOCABULARY <span class="badge">10 typing items</span></h2>
+  <p>Type the vocabulary word that best replaces the underlined word or phrase. Answers are not checked until submission.</p>
+  <div class="wordbank">
+    <span class="word">clarity</span><span class="word">dominant</span><span class="word">intellectual</span><span class="word">layout</span><span class="word">ritual</span>
+    <span class="word">collapse</span><span class="word">drought</span><span class="word">laser</span><span class="word">revenue</span><span class="word">transmit</span>
+  </div>
+  <div id="vocab"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">B. PERSONALIZE <span class="badge">Choose one</span></h2>
+  <p>These personal questions have no single right answer. Any choice earns full credit.</p>
+  <div id="personalize"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">REFLECT — Your country's history <span class="badge">Choose one</span></h2>
+  <p>These reflection questions are adapted for independent completion. Any thoughtful selection earns full credit.</p>
+  <div id="reflect"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">A. PREVIEW <span class="badge">2 questions</span></h2>
+  <div id="preview"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">B. MAIN IDEAS <span class="badge">5 questions</span></h2>
+  <p>Choose the paragraph number where each idea appears.</p>
+  <div id="mainideas"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">C. DETAILS <span class="badge">3 questions</span></h2>
+  <div id="detailsC"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">D. DETAILS — Reference words <span class="badge">3 questions</span></h2>
+  <div id="detailsD"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">E. DETAILS — Inference <span class="badge">4 Yes/No questions</span></h2>
+  <p>Decide whether each statement can be inferred from the reading.</p>
+  <div id="detailsE"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">CRITICAL THINKING — Apply the past to the present <span class="badge">1 question</span></h2>
+  <div id="critical"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">F. APPLY — Synthesize ideas <span class="badge">3 questions</span></h2>
+  <p>Choose the response that best represents a thoughtful synthesis of the activity.</p>
+  <div id="apply"></div>
+</section>
+
+<section class="card">
+  <h2 class="section-title">REFLECT — Imagine further uses of technology <span class="badge">2 questions</span></h2>
+  <div id="technology"></div>
+</section>
+
+<section class="card no-print">
+  <button type="button" class="finish" id="finish">FINISH + GRADE</button>
+  <p class="small" style="text-align:center">Your final score and answer review appear only after you submit.</p>
+</section>
+</form>
+
+<section id="results" class="card hidden">
+  <h2>📊 Results</h2>
+  <div id="dashboard" class="dashboard"></div>
+  <div class="actions no-print">
+    <button id="printBtn">PRINT / SAVE AS PDF</button>
+    <button id="downloadBtn">DOWNLOAD SUBMISSION FILE</button>
+  </div>
+  <hr>
+  <div id="review" class="review"></div>
+</section>
+</main>
+
+<script>
+const today = new Date();
+document.getElementById('date').value = today.toISOString().slice(0,10);
+
+const sections = {
+  vocab: [
+    ["The tea ceremony is a ________ ceremonial event at traditional Chinese weddings.","ritual"],
+    ["As a result of the severe lack of rainfall, the harvest was very poor.","drought"],
+    ["Email allows us to send messages more quickly than ever before.","transmit"],
+    ["The placement of buildings on this college campus is not convenient; for example, the library is too far from the residential buildings.","layout"],
+    ["Many medical procedures today are carried out with the use of beams of light; for example, eye surgeons use these to help people with weak vision.","laser"],
+    ["Much of the country's income comes from oil.","revenue"],
+    ["The game of chess is known to require mental ability; good chess players are considered to be very smart.","intellectual"],
+    ["The dramatic fall of the stock market in the 1920s had disastrous effects for many people.","collapse"],
+    ["The quality of being easily understood is often missing in legal documents.","clarity"],
+    ["Japan is one of the world's leading economic powers.","dominant"]
+  ],
+  personalize: [
+    ["Which activity best matches an intellectual game you might enjoy?","Chess or another strategy game","A game with no rules","An activity with no thinking at all","None of these can be considered a game"],
+    ["If you could improve the layout of your town or city, what would you most likely change?","Roads, public spaces, or transportation","Nothing anywhere","Only the weather","The number of historical events"],
+    ["Which is a reasonable example of a family or household ritual?","A repeated tradition such as a weekly family meal","A random event that happens once","A scientific measurement","A map-making technique"]
+  ],
+  reflect: [
+    ["Which type of historical period would be most useful to study to understand your country's development?","A period that changed society in an important way","Only a period with no changes","Only a period that happened last year","A period unrelated to the country"],
+    ["What is one useful reason for studying an important historical period?","We can learn how past choices affected later events.","History can never teach us anything.","It only helps us memorize dates.","It prevents all future problems."],
+    ["How can technology help researchers understand the past?","It can reveal evidence that is difficult to see with the naked eye.","It can change historical events.","It can replace every historian.","It can make old evidence disappear."]
+  ],
+  preview: [
+    ["What does LIDAR stand for?","Light Detection and Ranging","Long Image Data and Recording","Laser Information Display and Reading","Local Investigation, Detection and Research"],
+    ["Why is LIDAR useful for investigating lost civilizations?","It can reveal hidden natural and human-made features from above.","It removes the need for all archaeological work.","It directly interviews people from the past.","It only measures modern traffic."]
+  ],
+  mainideas: [
+    ["No one is sure why the Mayan civilization fell into decline.","1","1","4","8"],
+    ["A newly discovered Mayan structure is bigger than an Egyptian pyramid.","4","2","6","9"],
+    ["Different groups might have worked together on a building project in Mexico.","5","3","7","9"],
+    ["Researchers found more than they expected at Tikal.","7","2","4","6"],
+    ["LIDAR is a useful tool, but there are some things it cannot do.","9","3","6","8"]
+  ],
+  detailsC: [
+    ["LIDAR is a ________.","form of laser technology that shows what lies under vegetation","kind of plane that flies over ancient ruins and takes photos of them","tool only used for drawing maps of roads and waterways","system for predicting earthquakes"],
+    ["Scientists in Mexico have found ________.","a huge platform with buildings on top","a pyramid identical to one in Egypt","a collection of houses built by the Maya","a modern city beneath the site"],
+    ["The use of LIDAR in Guatemala has shown researchers that ________.","the Mayan civilization was older than they had believed","the Maya fought in wars more than previously thought","the Mayan civilization was more developed than previously thought","the Maya never built defensive structures"]
+  ],
+  detailsD: [
+    ["In paragraph 4, what does “This” refer to when the passage says the platform is recognized as the oldest and largest structure?","the structure/platform at Aguada Fénix","Takeshi Inomata's theory","the network of roads"],
+    ["In paragraph 5, what does “These” refer to in the statement about what may have symbolized group contributions?","soil colors","residential buildings","permanent settlements","roads"],
+    ["In paragraph 7, what does “This” refer to in the statement that it is significant?","the ancient city of Tikal","the moat","the large defensive system"]
+  ],
+  detailsE: [
+    ["Rituals and ceremonies were important aspects of Mayan civilization.","Yes","No"],
+    ["Mayan society was divided into different groups.","Yes","No"],
+    ["The Maya were an aggressive, war-loving civilization.","Yes","No"],
+    ["There are no modern descendants of the Maya.","Yes","No"]
+  ],
+  critical: [
+    ["What is the strongest lesson for connecting the Maya reading to the present?","Studying evidence from the past can help people understand the present and make informed decisions.","Technology means historical evidence is no longer necessary.","Every historical event has exactly one simple cause.","The past has no useful connection to present decisions."]
+  ],
+  apply: [
+    ["What kind of historical event could teach someone a valuable lesson?","An event whose causes and consequences can be examined and connected to later choices.","Only an event that happened yesterday.","An event with no evidence at all.","An event that cannot be discussed or compared."],
+    ["What is a useful way to think about an event in your country's history?","Consider what happened, what changed afterward, and what people can learn from it.","Memorize the date and ignore its consequences.","Assume the event had no effect on later life.","Study only one person's opinion."],
+    ["What makes a historical lesson useful to a group?","People can compare evidence and combine different perspectives into a larger understanding.","Everyone must have exactly the same experience.","Only one person should contribute.","The group should avoid evidence."]
+  ],
+  technology: [
+    ["Which place could be a meaningful location to use LIDAR?","A heavily forested area where hidden archaeological features may exist","A classroom whiteboard only","A place with no physical features at all","Only an indoor swimming pool"],
+    ["Which statement best describes another use of LIDAR mentioned or supported by the reading?","It can support mapping, weather forecasting, space exploration, and some vehicle technologies.","It is used only for archaeology.","It is used only to measure rainfall by hand.","It replaces every GPS system."]
+  ]
+};
+
+const answers = {};
+const sectionNames = {
+  vocab:"A. Vocabulary", personalize:"B. Personalize", reflect:"Reflect", preview:"A. Preview",
+  mainideas:"B. Main Ideas", detailsC:"C. Details", detailsD:"D. Details — Reference Words",
+  detailsE:"E. Details — Inference", critical:"Critical Thinking", apply:"F. Apply", technology:"Reflect — Technology"
+};
+let questionCount=0;
+
+function esc(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+function addMC(containerId, key, items, fullCredit=false){
+  const el=document.getElementById(containerId);
+  items.forEach((item,i)=>{
+    questionCount++;
+    const id=key+"_"+i;
+    const q=document.createElement("div"); q.className="question"; q.dataset.qid=id; q.dataset.section=key;
+    const qtext=item[0];
+    let opts;
+    if(key==="mainideas"){ opts=[item[1],item[2],item[3],item[4]]; answers[id]=item[1]; }
+    else if(key==="detailsE"){ opts=[item[1],item[2]]; answers[id]=fullCredit?null:item[1]; }
+    else { opts=item.slice(1); answers[id]=fullCredit?null:opts[0]; }
+    q.innerHTML=`<div class="qtext">${i+1}. ${esc(qtext)}</div><div class="options">${
+      opts.map((o,j)=>`<label><input type="radio" name="${id}" value="${esc(o)}"> <span>${esc(o)}</span></label>`).join("")
+    }</div>`;
+    el.appendChild(q);
+  });
+}
+function addVocab(){
+  const el=document.getElementById("vocab");
+  sections.vocab.forEach((item,i)=>{
+    questionCount++;
+    const id="vocab_"+i; answers[id]=item[1];
+    const q=document.createElement("div"); q.className="question"; q.dataset.qid=id; q.dataset.section="vocab";
+    q.innerHTML=`<div class="qtext">${i+1}. ${esc(item[0])}</div><input aria-label="Vocabulary answer ${i+1}" data-qid="${id}">`;
+    el.appendChild(q);
+  });
+}
+addVocab();
+addMC("personalize","personalize",sections.personalize,true);
+addMC("reflect","reflect",sections.reflect,true);
+addMC("preview","preview",sections.preview,false);
+addMC("mainideas","mainideas",sections.mainideas,false);
+addMC("detailsC","detailsC",sections.detailsC,false);
+addMC("detailsD","detailsD",sections.detailsD,false);
+addMC("detailsE","detailsE",sections.detailsE,false);
+// Fix exact inference answer keys: 1 Yes, 2 No, 3 No, 4 No.
+answers["detailsE_0"]="Yes"; answers["detailsE_1"]="No"; answers["detailsE_2"]="No"; answers["detailsE_3"]="No";
+addMC("critical","critical",sections.critical,false);
+addMC("apply","apply",sections.apply,true);
+addMC("technology","technology",sections.technology,true);
+
+const totalQuestions=questionCount;
+const keyAnswers={...answers};
+
+function allControls(){
+  return [...document.querySelectorAll("input")].filter(x=>x.id!=="student"&&x.id!=="class"&&x.id!=="date");
+}
+function completion(){
+  let done=0;
+  document.querySelectorAll(".question").forEach(q=>{
+    const radios=q.querySelectorAll('input[type="radio"]');
+    if(radios.length){ if([...radios].some(r=>r.checked)) done++; }
+    else { const inp=q.querySelector('input'); if(inp && inp.value.trim()) done++; }
+  });
+  const pct=Math.round(done/totalQuestions*100);
+  document.getElementById("progress").style.width=pct+"%";
+  document.getElementById("progressText").textContent=pct+"% Completed";
+}
+function save(){
+  const data={student:student.value,className:document.getElementById("class").value,date:date.value,dark:document.body.classList.contains("dark"),answers:{}};
+  document.querySelectorAll(".question").forEach(q=>{
+    const id=q.dataset.qid; const r=q.querySelector('input[type="radio"]:checked'); const t=q.querySelector('input:not([type="radio"])');
+    if(r) data.answers[id]=r.value; else if(t) data.answers[id]=t.value;
+  });
+  localStorage.setItem("lidarInteractiveWork",JSON.stringify(data)); completion();
+}
+function restore(){
+  try{
+    const d=JSON.parse(localStorage.getItem("lidarInteractiveWork")||"null"); if(!d)return;
+    student.value=d.student||""; document.getElementById("class").value=d.className||""; date.value=d.date||date.value;
+    if(d.dark)document.body.classList.add("dark");
+    Object.entries(d.answers||{}).forEach(([id,val])=>{
+      const q=document.querySelector(`[data-qid="${id}"]`); if(!q)return;
+      const r=[...q.querySelectorAll('input[type="radio"]')].find(x=>x.value===val); if(r)r.checked=true;
+      const t=q.querySelector('input:not([type="radio"])'); if(t && !r)t.value=val;
+    });
+  }catch(e){}
+  completion();
+}
+document.addEventListener("input",save); document.addEventListener("change",save);
+document.getElementById("modeBtn").onclick=()=>{document.body.classList.toggle("dark");save();};
+
+function selected(q){
+  const r=q.querySelector('input[type="radio"]:checked'); if(r)return r.value;
+  const t=q.querySelector('input:not([type="radio"])'); return t?t.value.trim():"";
+}
+function normalize(s){return (s||"").trim().toLowerCase();}
+function grade(){
+  if(!student.value.trim() || !document.getElementById("class").value.trim()){
+    alert("Please enter Student Name and Class / Section before submitting.");
+    return;
+  }
+  const sectionScores={}; const sectionTotals={}; let earned=0;
+  const reviews=[];
+  document.querySelectorAll(".question").forEach(q=>{
+    const id=q.dataset.qid, sec=q.dataset.section, val=selected(q);
+    let correct=false, full=true, correctAnswer=keyAnswers[id];
+    if(sec==="personalize"||sec==="reflect"||sec==="apply"||sec==="technology"){
+      correct=!!val; correctAnswer="Any option selected earns full credit."; full=true;
+    } else {
+      correct=normalize(val)===normalize(correctAnswer); full=correct;
+    }
+    if(!sectionTotals[sec]){sectionTotals[sec]=0;sectionScores[sec]=0}
+    sectionTotals[sec]++; if(correct){sectionScores[sec]++;earned++}
+    reviews.push({id,sec,val,correct,correctAnswer});
+  });
+  const pct=Math.round(earned/totalQuestions*100);
+  document.getElementById("results").classList.remove("hidden");
+  document.getElementById("dashboard").innerHTML=`
+    <div class="stat"><span>Student</span><strong style="font-size:18px">${esc(student.value.trim())}</strong></div>
+    <div class="stat"><span>Class / Section</span><strong style="font-size:18px">${esc(document.getElementById("class").value.trim())}</strong></div>
+    <div class="stat"><span>Date</span><strong style="font-size:18px">${esc(date.value)}</strong></div>
+    <div class="stat"><span>Total</span><strong>${earned}/${totalQuestions}</strong></div>
+    <div class="stat"><span>Final Grade</span><strong>${pct}%</strong></div>`;
+  const secHTML=Object.keys(sectionTotals).map(s=>`<div class="stat"><span>${sectionNames[s]}</span><strong>${sectionScores[s]}/${sectionTotals[s]}</strong><div class="small">${Math.round(sectionScores[s]/sectionTotals[s]*100)}%</div></div>`).join("");
+  document.getElementById("dashboard").insertAdjacentHTML("beforeend",secHTML);
+  document.getElementById("review").innerHTML="<h3>Detailed review</h3>"+reviews.map((r,i)=>{
+    const title=sectionNames[r.sec];
+    if(r.correct) return `<div class="question correct"><div><b>${i+1}. ${esc(title)}</b> <span class="good">✓ Correct</span></div><div>${esc(r.val||"Selected")}</div>${r.sec==="personalize"||r.sec==="reflect"||r.sec==="apply"||r.sec==="technology"?'<div class="small">Full credit for completing this opinion/reflection item.</div>':""}</div>`;
+    return `<div class="question incorrect"><div><b>${i+1}. ${esc(title)}</b> <span class="bad">✗ Incorrect</span></div><div>Your answer: ${esc(r.val||"No answer")}</div><div><b>Correct answer:</b> ${esc(r.correctAnswer)}</div></div>`;
+  }).join("");
+  window._finalData={earned,pct,totalQuestions,sectionScores,sectionTotals,reviews};
+  document.getElementById("results").scrollIntoView({behavior:"smooth"});
+  document.getElementById("finish").disabled=true;
+  save();
+}
+document.getElementById("finish").onclick=grade;
+document.getElementById("printBtn").onclick=()=>window.print();
+document.getElementById("downloadBtn").onclick=()=>{
+  const d=window._finalData||{}; const payload={
+    pageTitle:"LIDAR Interactive Reading",
+    studentName:student.value.trim(),
+    classSection:document.getElementById("class").value.trim(),
+    date:date.value,
+    score:{earned:d.earned,total:d.totalQuestions,percentage:d.pct},
+    sectionScores:d.sectionScores,
+    responses:d.reviews
+  };
+  const safe=s=>s.replace(/[^a-z0-9_-]+/gi,"_").replace(/^_+|_+$/g,"")||"Student";
+  const name=`LIDAR_${safe(payload.studentName)}_${safe(payload.classSection)}.json`;
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+restore();
+</script>
+</body>
+</html>
